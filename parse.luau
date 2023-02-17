@@ -99,7 +99,7 @@ if Subcommand == "members" then
     local Path = Args[2] or "Members.lua"
 
     if not IsFileType(Path, "lua") or not IsFileType(Path, "luau") then
-        print("File path for `lune members` must be *.lua or *.luau")
+        print("File path for `lune parse members` must be *.lua or *.luau")
         process.exit(1)
     end
 
