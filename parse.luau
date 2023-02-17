@@ -1,5 +1,3 @@
--- it's hackin time
-
 local LuaEncode = require("libraries/LuaEncode")
 
 -- Get full API dump (hacks real)
@@ -12,7 +10,28 @@ if FullAPIDump.Version ~= 1 then
 end
 
 local function FileType(fileName)
-    return string.match(fileName, `%.(.*)%w*$`)
+    return string.match(fileName, `%.(%w*)%s*$`)
+end
+
+local function SerializeOutput(inputTable, fileName)
+    local PathFileType = FileType(fileName)
+
+    local SerializedTable = if PathFileType == "lua" or PathFileType == "luau" then
+            "return " .. LuaEncode(inputTable, {
+                PrettyPrinting = true,
+                IndentCount = 4
+            })
+        elseif PathFileType == "json" or PathFileType == "json5" then
+            net.jsonEncode(inputTable, true)
+        else
+            nil
+    
+    if not SerializedTable then
+        print(`File path must be *.lua, *.luau, *.json, or *.json5; got \"{tostring(PathFileType)}\"`)
+        process.exit(1)
+    end
+
+    return SerializedTable
 end
 
 -- For parsing all instance members as-is
@@ -84,7 +103,57 @@ local function GetInstanceMembers()
     return InstanceMembers
 end
 
+-- For getting all props
+local function GetInstanceProperties(respectSerializationTags)
+    local InstanceProperties = {}
+    local IndividualInstanceProperties = {}
+    local InheritedClassBindings = {}
+
+    for _, ClassObject in FullAPIDump.Classes do
+        local Properties = {}
+
+        if ClassObject.Superclass ~= "<<<ROOT>>>" then
+            local InheritedClasses = {ClassObject.Superclass}
+
+            local SuperClassInheritedClasses = InheritedClassBindings[ClassObject.Superclass]
+            if SuperClassInheritedClasses then
+                for _, ClassName in SuperClassInheritedClasses do
+                    table.insert(InheritedClasses, ClassName)
+                end
+            end
+
+            InheritedClassBindings[ClassObject.Name] = InheritedClasses
+        end
+
+        for _, MemberObject in ClassObject.Members do
+            if MemberObject.MemberType == "Property" and if respectSerializationTags then MemberObject.Serialization and MemberObject.Serialization.CanSave and MemberObject.Serialization.CanLoad else true then
+                table.insert(Properties, MemberObject.Name)
+            end
+        end
+
+        IndividualInstanceProperties[ClassObject.Name] = Properties
+    end
+
+    for ClassName, InheritedClasses in InheritedClassBindings do
+        local ClassInstanceProperties = table.clone(IndividualInstanceProperties[ClassName])
+
+        for _, InheritedClass in InheritedClasses do
+            for _, PropertyName in IndividualInstanceProperties[InheritedClass] do
+                table.insert(ClassInstanceProperties, PropertyName)
+            end
+        end
+
+        InstanceProperties[ClassName] = ClassInstanceProperties
+    end
+
+    return InstanceProperties
+end
+
 -- CLI
+if not fs.isDir("gen") then
+    fs.writeDir("gen")
+end
+
 local Args = process.args
 
 if not Args[1] then
@@ -95,25 +164,22 @@ end
 local Subcommand = string.lower(Args[1])
 
 if Subcommand == "members" then
-    local Path = Args[2] or "Members.lua"
-    local PathFileType = FileType(Path)
+    local Path = Args[2] or "gen/Members.lua"
 
     local InstanceMembers = GetInstanceMembers()
-    local SerializedMembers = if PathFileType == "lua" or PathFileType == "luau" then
-            "return " .. LuaEncode(InstanceMembers, {
-                PrettyPrinting = true,
-                IndentCount = 4
-            })
-        elseif PathFileType == "json" or PathFileType == "json5" then
-            net.jsonEncode(InstanceMembers, true)
-        else
-            nil
-    
-    if not SerializedMembers then
-        print(`File path for \`lune parse members\` must be *.lua, *.luau, *.json, or *.json5; got {tostring(PathFileType)}`)
-        process.exit(1)
-    end
+    local SerializedMembers = SerializeOutput(InstanceMembers, Path)
 
     fs.writeFile(Path, SerializedMembers)
     print(`Wrote serialized members to {process.cwd}{Path}`)
+elseif Subcommand == "props" then
+    local RespectSerializationTags = if Args[2] then string.lower(Args[2]) == "true" else false
+    local Path = Args[3] or if RespectSerializationTags then "gen/SerializableProperties.lua" else "gen/Properties.lua"
+
+    local InstanceProperties = GetInstanceProperties(RespectSerializationTags)
+    local SerializedProperties = SerializeOutput(InstanceProperties, Path)
+
+    fs.writeFile(Path, SerializedProperties)
+    print(`Wrote serialized properties{if RespectSerializationTags then " (respecting serialization tags) " else " "}to {process.cwd}{Path}`)
 end
+
+process.exit(0)
