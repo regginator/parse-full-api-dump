@@ -1,0 +1,11 @@
+{
+    "luau-lsp.require.mode": "relativeToFile",
+    "luau-lsp.sourcemap.autogenerate": false,
+    "luau-lsp.sourcemap.enabled": false,
+    "luau-lsp.types.definitionFiles": [
+        ".luau/luneTypes.d.luau"
+    ],
+    "luau-lsp.types.documentationFiles": [
+        ".luau/luneDocs.json"
+    ]
+}
