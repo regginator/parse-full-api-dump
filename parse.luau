@@ -1,4 +1,3 @@
---!nocheck
 -- it's hackin time
 
 local LuaEncode = require("libraries/LuaEncode")
@@ -17,7 +16,7 @@ local function FileType(fileName)
 end
 
 -- For parsing all instance members as-is
-local function GetInstanceMembers(apiDump)
+local function GetInstanceMembers()
     -- All complete instance members will be placed here
     local InstanceMembers = {}
 
