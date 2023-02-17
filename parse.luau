@@ -12,12 +12,12 @@ if FullAPIDump.Version ~= 1 then
     process.exit(1)
 end
 
-local function IsFileType(fileName, extension)
-    return string.match(fileName, `%.{extension}$`) ~= nil
+local function FileType(fileName)
+    return string.match(fileName, `%.(.*)%w*$`)
 end
 
 -- For parsing all instance members as-is
-local function GetInstanceMembers()
+local function GetInstanceMembers(apiDump)
     -- All complete instance members will be placed here
     local InstanceMembers = {}
 
@@ -89,25 +89,32 @@ end
 -- CLI
 local Args = process.args
 
-local Subcommand = Args[1]
-if not Subcommand then
+if not Args[1] then
     print("No subcommand provided.\nUsage: `lune parse <subcommand> [OPTIONS]`")
     process.exit(1)
 end
 
+local Subcommand = string.lower(Args[1])
+
 if Subcommand == "members" then
     local Path = Args[2] or "Members.lua"
-
-    if not IsFileType(Path, "lua") or not IsFileType(Path, "luau") then
-        print("File path for `lune parse members` must be *.lua or *.luau")
-        process.exit(1)
-    end
+    local PathFileType = FileType(Path)
 
     local InstanceMembers = GetInstanceMembers()
-    local SerializedMembers = "return " .. LuaEncode(InstanceMembers, {
-        PrettyPrinting = true,
-        IndentCount = 4
-    })
+    local SerializedMembers = if PathFileType == "lua" or PathFileType == "luau" then
+            "return " .. LuaEncode(InstanceMembers, {
+                PrettyPrinting = true,
+                IndentCount = 4
+            })
+        elseif PathFileType == "json" or PathFileType == "json5" then
+            net.jsonEncode(InstanceMembers, true)
+        else
+            nil
+    
+    if not SerializedMembers then
+        print(`File path for \`lune parse members\` must be *.lua, *.luau, *.json, or *.json5; got {tostring(PathFileType)}`)
+        process.exit(1)
+    end
 
     fs.writeFile(Path, SerializedMembers)
     print(`Wrote serialized members to {process.cwd}{Path}`)
