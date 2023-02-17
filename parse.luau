@@ -85,7 +85,6 @@ local function GetInstanceMembers(apiDump)
     return InstanceMembers
 end
 
-
 -- CLI
 local Args = process.args
 
