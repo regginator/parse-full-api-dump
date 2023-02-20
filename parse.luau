@@ -1,8 +1,8 @@
 local LuaEncode = require("libraries/LuaEncode")
 
 -- Get full API dump (hacks real)
-local Version = net.request({url = "https://setup.rbxcdn.com/version-guid.txt"}).body
-local FullAPIDump = net.jsonDecode(net.request({url = `https://setup.rbxcdn.com/{Version}-Full-API-Dump.json`}).body)
+local StudioVersion = net.jsonDecode(net.request({url = "https://clientsettings.roblox.com/v2/client-version/WindowsStudio64/channel/LIVE"}).body).clientVersionUpload
+local FullAPIDump = net.jsonDecode(net.request({url = `https://setup.rbxcdn.com/{StudioVersion}-Full-API-Dump.json`}).body)
 
 if FullAPIDump.Version ~= 1 then
     print(`Full-API-Dump.json version invalid; expected 1, got {FullAPIDump.Version}`, 0)
